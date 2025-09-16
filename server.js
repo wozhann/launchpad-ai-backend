@@ -1,5 +1,3 @@
-// server.js (Render backend)
-
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -11,10 +9,10 @@ const app = express();
 app.use(cors({ origin: "*", methods: ["GET","POST","OPTIONS"], allowedHeaders: ["Content-Type"] }));
 app.use(express.json());
 
-// OpenAI client (reads OPENAI_API_KEY from Render env)
+// OpenAI client (reads OPENAI_API_KEY from env on Render)
 const client = new OpenAI();
 
-// In-memory demo data (reset on redeploy)
+// ---- In-memory data (resets on redeploy) ----
 const DB = {
   onboardingTasks: [
     { id: "acct", title: "Set up company email & SSO", done: false },
@@ -25,7 +23,7 @@ const DB = {
   ]
 };
 
-// Health checks
+// Health checks (helpful on Render)
 app.get("/", (_req, res) => res.json({ ok: true }));
 app.get("/env-check", (_req, res) => {
   const key = process.env.OPENAI_API_KEY || "";
@@ -41,20 +39,21 @@ app.post("/api/onboarding/toggle", (req, res) => {
   const { id, done } = req.body || {};
   const t = DB.onboardingTasks.find(x => x.id === id);
   if (!t) return res.status(404).json({ error: "task not found" });
-  if (typeof done === "boolean") t.done = done; else t.done = !t.done;
+  if (typeof done === "boolean") t.done = done;
+  else t.done = !t.done;
   res.json({ ok: true, task: t });
 });
 
-// ---------- Unified agent chat ----------
+// ---------- 4 Agents (unified chat) ----------
 const SYSTEM = {
   onboarding:
-    "You are an Onboarding Agent. Give concise, actionable steps for a brand-new employee. Refer to tasks like email setup, VPN/MFA, dev env, policies, timesheets. If user asks 'where do I submit timesheet', answer plainly and suggest next step.",
+    "You are an Onboarding Agent. Provide step-by-step, company-style guidance for new hires (email/SSO, VPN/MFA, dev env, policies, timesheets). Keep answers concise and actionable.",
   learning:
-    "You are a Learning & Skills Agent. Recommend concrete courses, tutorials, videos, or articles. Tailor by role/skill level. Suggest next steps and small practice tasks. Keep each suggestion with a 1-line why.",
+    "You are a Learning & Skills Agent. Recommend concrete resources (courses, tutorials, videos, docs) tailored to role and level. Identify gaps and next steps. Short bullets with a brief 'why'.",
   career:
-    "You are a Career Guidance Agent. Provide role ladders, skills for next level, internal mobility ideas, and mentor/buddy guidance. Offer simple 'what-if' planning and timelines.",
+    "You are a Career Guidance / Mentor Agent. Provide role ladders, skills for next level, mentor ideas, and simple 'what-if' scenarios with timelines.",
   faq:
-    "You are an FAQ/Support Agent. Answer HR/IT/policy questions succinctly; when likely internal doc paths exist, say 'Check: /docs/hr/timesheets or HR portal'. Escalate to human when needed."
+    "You are an FAQ / Support Agent. Answer HR/IT/policy questions succinctly. When relevant, suggest doc pointers like '/docs/hr/timesheets' or 'HR portal'. Escalate to human for complex issues."
 };
 
 app.post("/api/agent/respond", async (req, res) => {
@@ -82,4 +81,3 @@ app.post("/api/agent/respond", async (req, res) => {
 // ---------- Start ----------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("AI backend running on port " + PORT));
-
